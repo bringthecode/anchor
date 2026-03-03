@@ -5,12 +5,14 @@
   "description": "Own your AI-coded projects. Platform-agnostic project memory and context portability for vibecoding.",
   "workspaces": [
     "packages/*",
-    "apps/*"
+    "apps/cli",
+    "apps/desktop-electron"
   ],
   "scripts": {
-    "build": "npm run build --workspaces",
+    "build": "npm run build --workspaces --if-present",
     "dev": "npm run dev --workspace=apps/cli",
     "cli": "node apps/cli/dist/index.js",
+    "desktop": "npm run dev --workspace=apps/desktop-electron",
     "test": "npm run test --workspaces --if-present"
   },
   "keywords": [
