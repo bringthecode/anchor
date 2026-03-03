@@ -15,7 +15,7 @@ export function Sidebar({ currentView, onViewChange, projectName, onBack }: Side
       flexDirection: "column",
       padding: "16px 0",
       userSelect: "none",
-      WebkitAppRegion: "drag" as any,
+      
     }}>
       {/* Logo */}
       <div style={{
@@ -31,7 +31,7 @@ export function Sidebar({ currentView, onViewChange, projectName, onBack }: Side
       </div>
 
       {/* Navigation */}
-      <nav style={{ flex: 1, WebkitAppRegion: "no-drag" as any }}>
+      <nav style={{ flex: 1,  }}>
         <NavItem
           icon="📁"
           label="Projects"

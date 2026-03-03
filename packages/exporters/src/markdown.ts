@@ -1,5 +1,5 @@
-import type { ContextSnapshot, ExportedFile } from "@anchor/core";
-import { fileTreeToString } from "@anchor/core";
+import type { ContextSnapshot, ExportedFile } from "@bringthecode/core";
+import { fileTreeToString } from "@bringthecode/core";
 import type { Exporter } from "./base.js";
 
 export class MarkdownExporter implements Exporter {

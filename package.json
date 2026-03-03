@@ -1,5 +1,5 @@
 {
-  "name": "anchor",
+  "name": "@bringthecode/anchor",
   "version": "0.1.0",
   "private": true,
   "description": "Own your AI-coded projects. Platform-agnostic project memory and context portability for vibecoding.",
@@ -23,10 +23,10 @@
     "windsurf"
   ],
   "license": "MIT",
-  "homepage": "https://yourcode.dev",
+  "homepage": "https://bringthecode.dev",
   "repository": {
     "type": "git",
-    "url": "https://github.com/rickardwinbergh/anchor.git"
+    "url": "https://github.com/bringthecode/anchor.git"
   },
   "engines": {
     "node": ">=18.0.0"

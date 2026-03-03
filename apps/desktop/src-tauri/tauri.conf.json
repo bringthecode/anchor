@@ -2,7 +2,7 @@
   "$schema": "https://raw.githubusercontent.com/nicovank/tauri-v2/next/.schema/config.schema.json",
   "productName": "Anchor",
   "version": "0.1.0",
-  "identifier": "dev.yourcode.anchor",
+  "identifier": "dev.bringthecode.anchor",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420",

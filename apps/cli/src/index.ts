@@ -17,9 +17,9 @@ import {
   diffSnapshots,
   saveExportBaseline,
   loadExportBaseline,
-} from "@anchor/core";
-import type { AnchorConfig, DecisionCategory } from "@anchor/core";
-import { getExporter, listExporters, getExporterNames } from "@anchor/exporters";
+} from "@bringthecode/core";
+import type { AnchorConfig, DecisionCategory } from "@bringthecode/core";
+import { getExporter, listExporters, getExporterNames } from "@bringthecode/exporters";
 
 const VERSION = "0.1.0";
 const ANCHOR_DIR = ".anchor";
@@ -666,7 +666,7 @@ program
     }
 
     // Dynamic import to avoid loading chokidar unless needed
-    const { ProjectWatcher } = await import("@anchor/watchers");
+    const { ProjectWatcher } = await import("@bringthecode/watchers");
 
     const anchorDir = getAnchorDir(projectPath);
 

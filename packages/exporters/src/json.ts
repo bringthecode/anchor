@@ -1,4 +1,4 @@
-import type { ContextSnapshot, ExportedFile } from "@anchor/core";
+import type { ContextSnapshot, ExportedFile } from "@bringthecode/core";
 import type { Exporter } from "./base.js";
 
 export class JsonExporter implements Exporter {
@@ -8,7 +8,7 @@ export class JsonExporter implements Exporter {
 
   export(snapshot: ContextSnapshot): ExportedFile[] {
     const output = {
-      $schema: "https://yourcode.dev/schema/v1/context.json",
+      $schema: "https://bringthecode.dev/schema/v1/context.json",
       version: "1.0",
       exportedAt: snapshot.timestamp,
       project: {

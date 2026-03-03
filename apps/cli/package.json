@@ -1,5 +1,5 @@
 {
-  "name": "@anchor/cli",
+  "name": "@bringthecode/cli",
   "version": "0.1.0",
   "type": "module",
   "bin": {
@@ -10,8 +10,8 @@
     "dev": "tsc --watch"
   },
   "dependencies": {
-    "@anchor/core": "*",
-    "@anchor/exporters": "*",
+    "@bringthecode/core": "*",
+    "@bringthecode/exporters": "*",
     "chalk": "^5.3.0",
     "commander": "^12.0.0",
     "ora": "^8.0.0"

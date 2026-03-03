@@ -1,5 +1,5 @@
 {
-  "name": "@anchor/desktop",
+  "name": "@bringthecode/desktop",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -9,8 +9,8 @@
     "tauri": "tauri"
   },
   "dependencies": {
-    "@anchor/core": "*",
-    "@anchor/exporters": "*",
+    "@bringthecode/core": "*",
+    "@bringthecode/exporters": "*",
     "@tauri-apps/api": "^2.0.0",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

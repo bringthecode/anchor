@@ -6,7 +6,7 @@ Thanks for your interest in contributing to Anchor! This project exists to give 
 
 ```bash
 # Clone the repo
-git clone https://github.com/rickardwinbergh/anchor.git
+git clone https://github.com/bringthecode/anchor.git
 cd anchor
 
 # Install dependencies
@@ -42,7 +42,7 @@ Exporters are the most straightforward way to contribute. To add support for a n
 2. Implement the `Exporter` interface:
 
 ```typescript
-import type { ContextSnapshot, ExportedFile } from "@anchor/core";
+import type { ContextSnapshot, ExportedFile } from "@bringthecode/core";
 import type { Exporter } from "./base.js";
 
 export class MyToolExporter implements Exporter {

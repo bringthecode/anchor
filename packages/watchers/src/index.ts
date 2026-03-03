@@ -1,7 +1,7 @@
 import chokidar from "chokidar";
 import path from "path";
 import fs from "fs";
-import { ProjectMemory, detectStack } from "@anchor/core";
+import { ProjectMemory, detectStack } from "@bringthecode/core";
 
 export interface WatcherOptions {
   projectPath: string;

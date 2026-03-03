@@ -66,7 +66,7 @@ ANTHROPIC_API_KEY=sk-ant-... anchor summary
 ## Installation
 
 ```bash
-npm install -g @anchor/cli
+npm install -g @anchordev/cli
 ```
 
 ## Commands
@@ -161,4 +161,4 @@ MIT
 
 *Built for the vibecoding community. Your projects belong to you.*
 
-**[yourcode.dev](https://yourcode.dev)**
+**[bringthecode.dev](https://bringthecode.dev)**
