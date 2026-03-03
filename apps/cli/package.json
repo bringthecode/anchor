@@ -1,0 +1,22 @@
+{
+  "name": "@anchor/cli",
+  "version": "0.1.0",
+  "type": "module",
+  "bin": {
+    "anchor": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch"
+  },
+  "dependencies": {
+    "@anchor/core": "*",
+    "@anchor/exporters": "*",
+    "chalk": "^5.3.0",
+    "commander": "^12.0.0",
+    "ora": "^8.0.0"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.0"
+  }
+}

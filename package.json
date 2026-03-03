@@ -1,0 +1,37 @@
+{
+  "name": "anchor",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Own your AI-coded projects. Platform-agnostic project memory and context portability for vibecoding.",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "dev": "npm run dev --workspace=apps/cli",
+    "cli": "node apps/cli/dist/index.js",
+    "test": "npm run test --workspaces --if-present"
+  },
+  "keywords": [
+    "vibecoding",
+    "ai-coding",
+    "project-portability",
+    "context-management",
+    "cursor",
+    "claude-code",
+    "windsurf"
+  ],
+  "license": "MIT",
+  "homepage": "https://yourcode.dev",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/rickardwinbergh/anchor.git"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^25.3.3"
+  }
+}
