@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [macos-latest, windows-latest, ubuntu-latest]
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Install dependencies
+        working-directory: apps/desktop-electron
+        run: npm install
+      - name: Build
+        working-directory: apps/desktop-electron
+        run: npm run build
+      - name: Package (macOS)
+        if: matrix.os == 'macos-latest'
+        working-directory: apps/desktop-electron
+        run: npm run package:mac
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package (Windows)
+        if: matrix.os == 'windows-latest'
+        working-directory: apps/desktop-electron
+        run: npm run package:win
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      - name: Package (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        working-directory: apps/desktop-electron
+        run: npm run package:linux
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
