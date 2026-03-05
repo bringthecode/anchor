@@ -931,7 +931,7 @@ function InlineMarkdown({ text }: { text: string }) {
   );
 }
 
-function VisionDoneScreen({ project, visionText, onRedo }: { project: any; visionText: string; onRedo?: () => void }) {
+function VisionDoneScreen({ project, visionText }: { project: any; visionText: string }) {
   const [editing, setEditing] = useState(false);
   const [text, setText] = useState(visionText);
   const [saving, setSaving] = useState(false);
@@ -985,9 +985,6 @@ function VisionDoneScreen({ project, visionText, onRedo }: { project: any; visio
       <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
         <h2 style={{ fontSize: 18, fontWeight: 700 }}>{v.title || "Your Vision"}</h2>
         <div style={{ display: "flex", gap: 8 }}>
-          {onRedo && (
-            <button className="btn" style={{ fontSize: 12, padding: "4px 10px", color: "var(--text-2)" }} onClick={onRedo}>Redo interview</button>
-          )}
           {editing ? (
             <>
               <button className="btn" style={{ fontSize: 12, padding: "4px 10px" }} onClick={() => { setText(visionText); setEditing(false); }}>Cancel</button>
@@ -1021,27 +1018,18 @@ function VisionView({ project }: { project: any }) {
   const [thinking, setThinking] = useState(false);
   const [done, setDone] = useState(false);
   const [savedVisionText, setSavedVisionText] = useState("");
-  const [existingVision, setExistingVision] = useState<string | null>(null);
   const [apiKey, setApiKey] = useState("");
   const [keyInput, setKeyInput] = useState("");
   const [keyStatus, setKeyStatus] = useState<"idle" | "checking" | "valid" | "invalid">("idle");
   const [started, setStarted] = useState(false);
-  const [, setModel] = useModelPreference();
+  const [, setModel] = useModelPreference(); // keep setter so Vision uses saved model in Editor
   const chatEndRef = useRef<HTMLDivElement>(null);
-  const projectName = project.displayName || project.name;
 
   useEffect(() => {
     window.anchor?.getSetting?.("anthropic-api-key").then((k: string | null) => {
       if (k) { setApiKey(k); setKeyInput(k); setKeyStatus("valid"); }
     });
-    // Check if vision already exists
-    window.anchor?.readFile?.(project.path, "AGENTS.md").then((text: string | null) => {
-      if (text && text.includes("## What this project is") && !text.includes("⚠️ **Vision not set.**")) {
-        const match = text.match(/## What this project is([\s\S]*?)(?=\n## |\n---|$)/);
-        if (match) setExistingVision(match[1].trim());
-      }
-    }).catch(() => {});
-  }, [project.path]);
+  }, []);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -1072,7 +1060,7 @@ function VisionView({ project }: { project: any }) {
       const data = await window.anchor.claudeChat({
         apiKey,
         system: SYSTEM,
-        messages: [{ role: "user", content: `My project is called "${projectName}". Let's define its vision.` }],
+        messages: [{ role: "user", content: `My project is called "${project.name}". Let's define its vision.` }],
         maxTokens: 1000,
         model: "claude-haiku-4-5-20251001",
       });
@@ -1144,11 +1132,6 @@ ${vision.success}
   };
 
   // --- Key setup screen ---
-  // Vision already exists — show it with option to redo
-  if (existingVision && !started) {
-    return <VisionDoneScreen project={project} visionText={`## What this project is\n\n${existingVision}\n`} onRedo={() => setExistingVision(null)} />;
-  }
-
   if (!apiKey || keyStatus !== "valid") {
     return (
       <div style={{ maxWidth: 480, margin: "0 auto", paddingTop: 60 }}>
@@ -1200,6 +1183,7 @@ ${vision.success}
   if (done) {
     return <VisionDoneScreen project={project} visionText={savedVisionText} />;
   }
+
   // --- Chat ---
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "calc(100vh - 64px)", maxWidth: 680, margin: "0 auto" }}>

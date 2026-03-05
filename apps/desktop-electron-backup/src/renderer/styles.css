@@ -1,32 +1,22 @@
 :root {
-  /* Backgrounds — deep teal-tinted darks */
-  --bg-0: #0d1517;
-  --bg-1: #111c1f;
-  --bg-2: #172025;
-  --bg-3: #1e2a2f;
-
-  /* Borders */
-  --border: #243338;
-  --border-hover: #2f4248;
-
-  /* Text */
-  --text-0: #eef2f3;
-  --text-1: #b8c8cc;
-  --text-2: #6e8c93;
-
-  /* Accent — teal, derived from #243338 going lighter */
-  --accent: #4a9fad;
-  --accent-hover: #5bb8c7;
-  --accent-bg: rgba(74, 159, 173, 0.1);
-
-  /* Status colors — kept readable on dark teal backgrounds */
-  --green: #3db88a;
-  --green-bg: rgba(61, 184, 138, 0.1);
-  --yellow: #d4a843;
-  --yellow-bg: rgba(212, 168, 67, 0.1);
-  --red: #e05c5c;
-  --red-bg: rgba(224, 92, 92, 0.1);
-
+  --bg-0: #06060a;
+  --bg-1: #0a0a12;
+  --bg-2: #12121e;
+  --bg-3: #1a1a2a;
+  --border: #252538;
+  --border-hover: #3a3a55;
+  --text-0: #f0f0f8;
+  --text-1: #c8c8d8;
+  --text-2: #8888a0;
+  --accent: #6366f1;
+  --accent-hover: #818cf8;
+  --accent-bg: rgba(99, 102, 241, 0.1);
+  --green: #22c55e;
+  --green-bg: rgba(34, 197, 94, 0.1);
+  --yellow: #eab308;
+  --yellow-bg: rgba(234, 179, 8, 0.1);
+  --red: #ef4444;
+  --red-bg: rgba(239, 68, 68, 0.1);
   --radius: 10px;
   --radius-sm: 6px;
 }

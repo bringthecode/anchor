@@ -1,9 +1,9 @@
+const crypto = require("crypto");
 import fs from "fs";
 import path from "path";
 import { BrowserWindow } from "electron";
 import { GitWatcher } from "./git-watcher";
 import { SnapshotManager } from "./snapshot-manager";
-import { randomUUID } from "crypto";
 
 // We'll use the core modules directly via require since this is commonjs
 const initSqlJs = require("sql.js");
@@ -103,11 +103,6 @@ export class ProjectManager {
   // === Project lifecycle ===
 
   async openProject(projectPath: string): Promise<ProjectInfo> {
-    // 1. Validate path exists
-    if (!fs.existsSync(projectPath)) {
-      throw new Error(`Project folder not found: ${projectPath}`);
-    }
-
     // Detect stack
     const stack = this.detectStack(projectPath);
     const name = this.detectProjectName(projectPath);
@@ -116,23 +111,13 @@ export class ProjectManager {
     const anchorDir = path.join(projectPath, ".anchor");
     fs.mkdirSync(anchorDir, { recursive: true });
 
-    // 3. Auto-add .anchor/ to .gitignore
-    const gitignorePath = path.join(projectPath, ".gitignore");
-    try {
-      let gitignore = fs.existsSync(gitignorePath) ? fs.readFileSync(gitignorePath, "utf-8") : "";
-      if (!gitignore.includes(".anchor/") && !gitignore.includes(".anchor")) {
-        gitignore = gitignore.trimEnd() + "\n\n# Anchor local data\n.anchor/\n";
-        fs.writeFileSync(gitignorePath, gitignore, "utf-8");
-      }
-    } catch { /* ignore if .gitignore isn't writable */ }
-
     // Setup database
     const db = await this.getDb(projectPath);
 
     // Ensure project exists in DB
     const existing = db.exec("SELECT id FROM projects WHERE path = ?", [projectPath]);
     if (existing.length === 0 || existing[0].values.length === 0) {
-      const id = randomUUID();
+      const id = crypto.randomUUID();
       const now = new Date().toISOString();
       db.run(
         "INSERT INTO projects (id, name, path, stack_json, created_at, updated_at) VALUES (?, ?, ?, ?, ?, ?)",
@@ -160,14 +145,6 @@ export class ProjectManager {
       });
     });
 
-    gitWatcher.on("pulled", (info) => {
-      // New commits arrived via auto-pull — refresh AGENTS.md and notify UI
-      this.updateAgentsFile(projectPath).catch(() => {});
-      BrowserWindow.getAllWindows().forEach((win) => {
-        win.webContents.send("project-pulled", { projectPath, ...info });
-      });
-    });
-
     // Setup snapshot manager and parse plan if exists
     const snapshotManager = new SnapshotManager(projectPath);
     snapshotManager.parsePlanFile();
@@ -176,9 +153,6 @@ export class ProjectManager {
 
     // Save to projects list
     this.saveProjectsList(projectPath);
-
-    // Generate/update AGENTS.md immediately
-    this.updateAgentsFile(projectPath).catch(() => {});
 
     const gitStatus = await gitWatcher.getStatus();
 
@@ -197,8 +171,7 @@ export class ProjectManager {
     const saved = this.loadProjectsList();
     return saved.map((p) => ({
       path: p.path,
-      name: p.displayName || p.name,
-      displayName: p.displayName || p.name,
+      name: p.name,
       stack: {},
       lastActivity: p.lastOpened,
       decisionCount: 0,
@@ -216,19 +189,14 @@ export class ProjectManager {
     const gitStatus = await gitWatcher.getStatus();
     const snapshotManager = project?.snapshotManager || new SnapshotManager(projectPath);
 
-    const [decisions, notes] = await Promise.all([
-      this.getDecisions(projectPath),
-      this.getNotes(projectPath),
-    ]);
-
     return {
-      stack: JSON.parse(JSON.stringify(stack)),
-      git: JSON.parse(JSON.stringify(gitStatus)),
-      decisions: JSON.parse(JSON.stringify(decisions)),
-      notes: JSON.parse(JSON.stringify(notes)),
-      phases: JSON.parse(JSON.stringify(snapshotManager.getPhases())),
-      snapshots: JSON.parse(JSON.stringify(snapshotManager.getSnapshots())),
-      activity: JSON.parse(JSON.stringify(this.getRecentActivity(db, projectPath))),
+      stack,
+      git: gitStatus,
+      decisions: this.getDecisions(projectPath),
+      notes: this.getNotes(projectPath),
+      phases: snapshotManager.getPhases(),
+      snapshots: snapshotManager.getSnapshots(),
+      activity: this.getRecentActivity(db, projectPath),
     };
   }
 
@@ -248,7 +216,7 @@ export class ProjectManager {
     const projectId = this.getProjectId(db, projectPath);
     if (!projectId) return null;
 
-    const id = randomUUID();
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
     db.run(
@@ -259,7 +227,6 @@ export class ProjectManager {
 
     this.logActivity(projectPath, "decision", `Decision: ${decision.title}`, decision);
     this.saveDbs(projectPath);
-    this.updateAgentsFile(projectPath).catch(() => {});
 
     return { id, ...decision, timestamp: now, status: "active" };
   }
@@ -295,7 +262,7 @@ export class ProjectManager {
     const projectId = this.getProjectId(db, projectPath);
     if (!projectId) return "";
 
-    const id = randomUUID();
+    const id = crypto.randomUUID();
     const now = new Date().toISOString();
 
     db.run(
@@ -304,7 +271,6 @@ export class ProjectManager {
     );
 
     this.saveDbs(projectPath);
-    this.updateAgentsFile(projectPath).catch(() => {});
     return id;
   }
 
@@ -341,7 +307,6 @@ export class ProjectManager {
     const phase = await sm.completePhase(phaseId);
     if (phase) {
       this.logActivity(projectPath, "phase-complete", `Completed: ${phase.title}`, phase);
-      this.updateAgentsFile(projectPath).catch(() => {});
     }
     return phase;
   }
@@ -373,176 +338,34 @@ export class ProjectManager {
   // === Export ===
 
   async exportContext(projectPath: string, target: string): Promise<{ files: string[] }> {
+    // Build context snapshot
     const state = await this.getProjectState(projectPath);
-    const name = path.basename(projectPath);
-    const now = new Date().toLocaleString("sv-SE");
-    const decisions: any[] = state.decisions || [];
-    const phases: any[] = state.phases || [];
-    const notes: any[] = state.notes || [];
-    const stack = state.stack || {};
-    const git = state.git || {};
+    const snapshot = this.buildExportSnapshot(projectPath, state);
 
-    const stackSummary = [
-      stack.framework && `Framework: ${stack.framework}`,
-      stack.language && `Language: ${stack.language}`,
-      stack.packageManager && `Package manager: ${stack.packageManager}`,
-      stack.hasTypescript && `TypeScript: yes`,
-      stack.database && `Database: ${stack.database}`,
-      stack.css && `CSS: ${stack.css}`,
-    ].filter(Boolean).join("\n");
+    // Use exporters
+    const { getExporter } = require("@bringthecode/exporters");
+    const exporter = getExporter(target);
+    if (!exporter) return { files: [] };
 
-    const decisionsBlock = decisions.length > 0
-      ? decisions.map((d: any) =>
-          `### ${d.title}\n${d.description}${d.reasoning ? `\n**Why:** ${d.reasoning}` : ""}`
-        ).join("\n\n")
-      : "No decisions logged yet.";
+    const files = exporter.export(snapshot);
+    const written: string[] = [];
 
-    const phasesBlock = phases.length > 0
-      ? phases.map((p: any) =>
-          `- [${p.completedAt ? "x" : " "}] ${p.title}${p.description ? ` — ${p.description}` : ""}`
-        ).join("\n")
-      : "No phases defined yet.";
-
-    const notesBlock = notes.length > 0
-      ? notes.slice(0, 10).map((n: any) => `- ${n.content}`).join("\n")
-      : "";
-
-    const gitBlock = git.current
-      ? `Branch: ${git.current} (${git.ahead || 0} ahead, ${git.behind || 0} behind)`
-      : "";
-
-    let content = "";
-    let filename = "";
-
-    if (target === "claude-code") {
-      filename = "CLAUDE.md";
-      content = `# ${name} — Project Context for Claude
-
-> Generated by Anchor on ${now}
-
-## What this project is
-${name} — a vibecoded project. Use this file as your primary context source.
-
-## Tech Stack
-${stackSummary || "Auto-detected stack info not available."}
-
-## Current Git State
-${gitBlock || "Not a git repo or no git info available."}
-
-## Build Phases
-${phasesBlock}
-
-## Key Technical Decisions
-${decisionsBlock}
-
-${notesBlock ? `## Notes\n${notesBlock}` : ""}
-
-## Working with this project
-- Always read this file first before making changes
-- Respect the decisions above — don't swap out libraries without good reason
-- Keep the phase list updated as you complete work
-- This file is auto-maintained by Anchor — do not delete it
-`;
-    } else if (target === "cursor") {
-      filename = ".cursorrules";
-      content = `# Cursor Rules — ${name}
-# Generated by Anchor on ${now}
-
-## Project
-${name}
-
-## Stack
-${stackSummary || "See package.json"}
-
-## Key Decisions (respect these)
-${decisions.map((d: any) => `- ${d.title}: ${d.description}`).join("\n") || "None logged yet."}
-
-## Phases
-${phasesBlock}
-
-## Rules
-- Follow the tech stack above — do not introduce new frameworks
-- Preserve existing patterns and conventions
-- When fixing bugs, explain the root cause in comments
-- Keep changes minimal and focused
-${notesBlock ? `\n## Notes\n${notesBlock}` : ""}
-`;
-    } else if (target === "windsurf") {
-      filename = ".windsurfrules";
-      content = `# Windsurf Rules — ${name}
-# Generated by Anchor on ${now}
-
-## Project: ${name}
-## Stack: ${stackSummary || "See package.json"}
-
-## Decisions
-${decisions.map((d: any) => `- ${d.title}: ${d.description}`).join("\n") || "None logged yet."}
-
-## Current Phase
-${phases.find((p: any) => !p.completedAt)?.title || "See phase list"}
-
-## Rules
-- Respect all decisions listed above
-- Keep changes scoped — no large rewrites without asking
-- Use existing patterns in the codebase
-`;
-    } else if (target === "lovable") {
-      filename = "ANCHOR_CONTEXT.md";
-      content = `# Project Context — ${name}
-> Paste this into Lovable's chat to give it full project context.
-> Generated by Anchor on ${now}
-
-## Project
-${name}
-
-## Tech Stack
-${stackSummary || "See package.json"}
-
-## What's been built (phases)
-${phasesBlock}
-
-## Important technical decisions
-${decisionsBlock}
-
-## Current git state
-${gitBlock || "n/a"}
-
-${notesBlock ? `## Notes & known issues\n${notesBlock}` : ""}
-
----
-Please read the above context carefully before making any changes.
-Respect all decisions that have been made, and continue from the current phase state.
-`;
-    } else {
-      // Generic markdown
-      filename = "PROJECT-CONTEXT.md";
-      content = `# ${name} — Project Context
-Generated by Anchor on ${now}
-
-## Stack
-${stackSummary || "See package.json"}
-
-## Phases
-${phasesBlock}
-
-## Decisions
-${decisionsBlock}
-
-${gitBlock ? `## Git\n${gitBlock}` : ""}
-${notesBlock ? `\n## Notes\n${notesBlock}` : ""}
-`;
+    for (const file of files) {
+      const fullPath = path.join(projectPath, file.path);
+      const dir = path.dirname(fullPath);
+      if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+      fs.writeFileSync(fullPath, file.content);
+      written.push(file.path);
     }
 
-    const fullPath = path.join(projectPath, filename);
-    fs.writeFileSync(fullPath, content);
-    this.logActivity(projectPath, "export", `Exported to ${target}`, { target, files: [filename] });
-    return { files: [filename] };
+    this.logActivity(projectPath, "export", `Exported to ${target}`, { target, files: written });
+    return { files: written };
   }
 
   async exportAll(projectPath: string): Promise<{ files: string[] }> {
-    const targets = ["claude-code", "cursor", "windsurf", "lovable", "markdown"];
+    const { getExporterNames } = require("@bringthecode/exporters");
     const allFiles: string[] = [];
-    for (const target of targets) {
+    for (const target of getExporterNames()) {
       const result = await this.exportContext(projectPath, target);
       allFiles.push(...result.files);
     }
@@ -633,165 +456,6 @@ ${notesBlock ? `\n## Notes\n${notesBlock}` : ""}
 
   // === Private helpers ===
 
-  async writeVisionSection(projectPath: string, visionSection: string): Promise<void> {
-    const agentsPath = path.join(projectPath, "AGENTS.md");
-    let content = fs.existsSync(agentsPath) ? fs.readFileSync(agentsPath, "utf-8") : "";
-
-    // Replace existing vision section if present, otherwise insert after first H1
-    if (content.includes("## Product Vision") || content.includes("## What this project is")) {
-      content = content.replace(/## (Product Vision|What this project is)[\s\S]*?(?=\n## |\n---|\n_Generated|$)/, visionSection);
-    } else {
-      // Insert after first H1 block
-      const firstSectionIdx = content.indexOf("\n## ");
-      if (firstSectionIdx !== -1) {
-        content = content.slice(0, firstSectionIdx) + "\n" + visionSection + content.slice(firstSectionIdx);
-      } else {
-        content = visionSection + content;
-      }
-    }
-
-    fs.writeFileSync(agentsPath, content);
-    this.logActivity(projectPath, "vision", "Product vision written to AGENTS.md", {});
-  }
-
-  async updateAgentsFile(projectPath: string): Promise<void> {
-    const state = await this.getProjectState(projectPath);
-    // Use displayName if set, otherwise fall back to folder name
-    const savedProjects = this.loadProjectsList();
-    const saved = savedProjects.find((p) => p.path === projectPath);
-    const name = saved?.displayName || saved?.name || this.detectProjectName(projectPath);
-    const now = new Date().toLocaleString("sv-SE");
-    const decisions: any[] = state.decisions || [];
-    const phases: any[] = state.phases || [];
-    const notes: any[] = state.notes || [];
-    const stack = state.stack || {};
-    const git = state.git || {};
-
-    const stackLines = [
-      ...(stack.frameworks || []).map((f: string) => `- Framework: ${f}`),
-      ...(stack.languages || []).map((l: string) => `- Language: ${l}`),
-      ...(stack.buildTools || []).map((b: string) => `- Build: ${b}`),
-      ...(stack.databases || []).map((d: string) => `- Database: ${d}`),
-    ].join("\n") || "- Auto-detection in progress";
-
-    const completedPhases = phases.filter((p: any) => p.completedAt);
-    const activePhase = phases.find((p: any) => !p.completedAt);
-    const pendingPhases = phases.filter((p: any) => !p.completedAt);
-
-    const phasesBlock = phases.length > 0
-      ? phases.map((p: any) =>
-          `- [${p.completedAt ? "x" : " "}] **${p.title}**${p.description ? ` — ${p.description}` : ""}${p.completedAt ? ` _(done ${new Date(p.completedAt).toLocaleDateString("sv-SE")})_` : ""}`
-        ).join("\n")
-      : "- No phases defined yet — add them in Anchor";
-
-    const decisionsBlock = decisions.length > 0
-      ? decisions.map((d: any) =>
-          `### ${d.title}\n${d.description}${d.reasoning ? `\n> **Why:** ${d.reasoning}` : ""}${d.category !== "other" ? `\n> _Category: ${d.category}_` : ""}`
-        ).join("\n\n")
-      : "_No decisions logged yet. Log them in Anchor as you make them._";
-
-    const notesBlock = notes.length > 0
-      ? notes.slice(0, 15).map((n: any) => `- ${n.content}`).join("\n")
-      : "";
-
-    const gitLine = git.current
-      ? `**Branch:** \`${git.current}\` · ${git.ahead || 0} ahead · ${git.behind || 0} behind`
-      : "";
-
-    const currentStateBlock = [
-      activePhase ? `**Currently working on:** ${activePhase.title}` : "**All phases complete** ✓",
-      `**Completed phases:** ${completedPhases.length}/${phases.length}`,
-      `**Decisions logged:** ${decisions.length}`,
-      gitLine,
-    ].filter(Boolean).join("\n");
-
-    const content = `# AGENTS.md — ${name}
-
-> This file is maintained automatically by [Anchor](https://bringthecode.dev).
-> It is the single source of truth for this project's context.
-> Last updated: ${now}
->
-> **For all AI tools:** Read this file before making any changes.
-> Respect all decisions below. Continue from the current phase state.
-
----
-
-## What this project is
-
-${name}
-
-⚠️ **Vision not set.** Run the Vision Interview in Anchor to give AI tools proper context about what this product is, who it's for, and what it should feel like. Without this, AI tools are working blind.
-
----
-
-## Current State
-
-${currentStateBlock}
-
----
-
-## Tech Stack
-
-${stackLines}
-
----
-
-## Build Phases
-
-${phasesBlock}
-
----
-
-## Key Technical Decisions
-
-${decisionsBlock}
-
----
-
-## Tool-Specific Instructions
-
-### Lovable
-- Read the decisions above before generating code
-- Continue from the current phase: **${activePhase?.title || "all phases complete"}**
-- Do not switch out libraries or patterns without flagging it
-- Keep changes minimal and scoped to the current phase
-
-### Claude Code / Anchor Editor
-- Full project context is loaded — no need to re-explain the stack
-- Prefer surgical fixes over rewrites
-- Always update AGENTS.md via Anchor after significant changes
-
-### Cursor / Windsurf
-- Use \`.cursorrules\` / \`.windsurfrules\` if present, but treat AGENTS.md as the primary source
-- Follow the decisions above strictly
-- Ask before introducing new dependencies
-
-### Bolt / v0 / other tools
-- This project uses ${(stack.frameworks || ["the stack above"])[0]}
-- Paste relevant sections of this file into the tool's context window
-- Do not change the tech stack without updating the decisions section
-
----
-
-## Known Issues & Notes
-
-${notesBlock || "_No notes yet. Add them in Anchor._"}
-
----
-
-## Git History Summary
-
-_Auto-populated by Anchor on next sync._
-
----
-
-_Generated by Anchor · [bringthecode.dev](https://bringthecode.dev)_
-`;
-
-    const agentsPath = path.join(projectPath, "AGENTS.md");
-    fs.writeFileSync(agentsPath, content);
-  }
-
   private detectStack(projectPath: string): any {
     const stack: any = { languages: [], frameworks: [], buildTools: [], databases: [] };
     const pkgPath = path.join(projectPath, "package.json");
@@ -866,7 +530,7 @@ _Generated by Anchor · [bringthecode.dev](https://bringthecode.dev)_
       const db = await this.getDb(projectPath);
       const projectId = this.getProjectId(db, projectPath);
       if (!projectId) return;
-      const id = randomUUID();
+      const id = crypto.randomUUID();
       const now = new Date().toISOString();
       db.run(
         "INSERT INTO activity_log (id, project_id, timestamp, type, summary, details_json) VALUES (?, ?, ?, ?, ?, ?)",
@@ -893,8 +557,21 @@ _Generated by Anchor · [bringthecode.dev](https://bringthecode.dev)_
     }));
   }
 
+  private buildExportSnapshot(projectPath: string, state: any): any {
+    return {
+      projectId: "local",
+      timestamp: new Date().toISOString(),
+      summary: `Project at ${path.basename(projectPath)}`,
+      fileTree: [],
+      decisions: state.decisions || [],
+      stack: state.stack || {},
+      dependencies: {},
+      gitInfo: state.git || undefined,
+      notes: (state.notes || []).map((n: any) => n.content),
+    };
+  }
 
-  private loadProjectsList(): Array<{ path: string; name: string; displayName?: string; lastOpened: string }> {
+  private loadProjectsList(): Array<{ path: string; name: string; lastOpened: string }> {
     if (!fs.existsSync(PROJECTS_FILE)) return [];
     try {
       return JSON.parse(fs.readFileSync(PROJECTS_FILE, "utf-8"));
@@ -903,17 +580,15 @@ _Generated by Anchor · [bringthecode.dev](https://bringthecode.dev)_
     }
   }
 
-  private saveProjectsList(projectPath: string, displayName?: string): void {
+  private saveProjectsList(projectPath: string): void {
     const list = this.loadProjectsList();
     const existing = list.find((p) => p.path === projectPath);
     if (existing) {
       existing.lastOpened = new Date().toISOString();
-      if (displayName) existing.displayName = displayName;
     } else {
       list.push({
         path: projectPath,
         name: this.detectProjectName(projectPath),
-        displayName: displayName,
         lastOpened: new Date().toISOString(),
       });
     }
@@ -923,19 +598,5 @@ _Generated by Anchor · [bringthecode.dev](https://bringthecode.dev)_
   private removeFromProjectsList(projectPath: string): void {
     const list = this.loadProjectsList().filter((p) => p.path !== projectPath);
     fs.writeFileSync(PROJECTS_FILE, JSON.stringify(list, null, 2));
-  }
-
-  renameProject(projectPath: string, newName: string): { path: string; name: string } {
-    const list = this.loadProjectsList();
-    const existing = list.find((p) => p.path === projectPath);
-    if (existing) {
-      existing.displayName = newName;
-      fs.writeFileSync(PROJECTS_FILE, JSON.stringify(list, null, 2));
-    }
-    const project = this.projects.get(projectPath);
-    if (project) project.name = newName;
-    // Regenerate AGENTS.md with new name
-    this.updateAgentsFile(projectPath).catch(() => {});
-    return { path: projectPath, name: newName };
   }
 }
