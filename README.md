@@ -4,8 +4,8 @@
 
 ## Install
 
-### Download
-Go to [Releases](https://github.com/bringthecode/anchor/releases) for Mac/Win/Linux binaries.
+### Download (macOS)
+Go to [Releases](https://github.com/bringthecode/anchor/releases) and download `Anchor-0.1.0.dmg`.
 
 ### Run from source
 ```bash
