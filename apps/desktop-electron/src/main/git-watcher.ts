@@ -67,7 +67,6 @@ export class GitWatcher extends EventEmitter {
 
     // Poll every 30s AND run immediately on start
     this.pollInterval = setInterval(() => this.pullAndCheck(), 30000);
-    setTimeout(() => this.pullAndCheck(), 3000); // initial fetch after 3s warmup
   }
 
   private onFileChange(type: string, filePath: string): void {
@@ -83,6 +82,11 @@ export class GitWatcher extends EventEmitter {
     try {
       const remotes = await this.git.getRemotes(true);
       if (remotes.length === 0) return;
+
+      // Skip fetch for HTTPS remotes entirely — triggers macOS keychain prompt
+      const origin = remotes.find((r: any) => r.name === "origin");
+      const remoteUrl = origin?.refs?.fetch || "";
+      if (remoteUrl.startsWith("https://")) return;
 
       const beforeLog = await this.git.log({ maxCount: 1 }).catch(() => null);
       const beforeHash = beforeLog?.latest?.hash || "";
