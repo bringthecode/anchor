@@ -518,6 +518,14 @@ ${stack.databases?.length ? `Databases: ${stack.databases.join(", ")}` : ""}
 function FileTreeView({ tree, onSelect, selectedPath, depth = 0 }: {
   tree: any[]; onSelect: (path: string) => void; selectedPath?: string; depth?: number;
 }) {
+  const initialCollapsed = () => {
+    const state: Record<string, boolean> = {};
+    const walk = (nodes: any[]) => nodes.forEach(n => { if (n.type === "directory") { state[n.path] = true; if (n.children) walk(n.children); } });
+    walk(tree);
+    return state;
+  };
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>(initialCollapsed);
+
   if (!tree || tree.length === 0) {
     return depth === 0 ? (
       <div style={{ padding: 12, fontSize: 12, color: "var(--text-2)" }}>No files found</div>
@@ -529,19 +537,33 @@ function FileTreeView({ tree, onSelect, selectedPath, depth = 0 }: {
       {tree.map((node) => (
         <div key={node.path}>
           <div
-            onClick={() => node.type === "file" && onSelect(node.path)}
+            onClick={() => {
+              if (node.type === "directory") {
+                setCollapsed(prev => ({ ...prev, [node.path]: !prev[node.path] }));
+              } else {
+                onSelect(node.path);
+              }
+            }}
             style={{
               padding: "3px 12px", paddingLeft: 12 + depth * 14,
-              fontSize: 12, cursor: node.type === "file" ? "pointer" : "default",
+              fontSize: 12, cursor: "pointer",
               color: selectedPath === node.path ? "var(--accent)" : "var(--text-2)",
               background: selectedPath === node.path ? "var(--accent-bg)" : "transparent",
               whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis",
+              display: "flex", alignItems: "center", gap: 4,
             }}
           >
+            {node.type === "directory" && (
+              <span style={{ fontSize: 9, opacity: 0.5, flexShrink: 0 }}>
+                {collapsed[node.path] ? "▶" : "▼"}
+              </span>
+            )}
             <span style={{ marginRight: 4 }}>{node.type === "directory" ? "📁" : fileIcon(node.path)}</span>
             {node.path.split("/").pop()}
           </div>
-          {node.children && <FileTreeView tree={node.children} onSelect={onSelect} selectedPath={selectedPath} depth={depth + 1} />}
+          {node.children && !collapsed[node.path] && (
+            <FileTreeView tree={node.children} onSelect={onSelect} selectedPath={selectedPath} depth={depth + 1} />
+          )}
         </div>
       ))}
     </div>
