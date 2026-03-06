@@ -7,6 +7,8 @@
 ### Download (macOS)
 Go to [Releases](https://github.com/bringthecode/anchor/releases) and download `Anchor-0.1.0.dmg`.
 
+> Windows and Linux support coming in v0.2.0
+
 ### Run from source
 ```bash
 git clone https://github.com/bringthecode/anchor.git
